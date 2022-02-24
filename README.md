@@ -1,3 +1,41 @@
+# Return two or more actions in epic when the initial action is completed:
+
+```tsx
+import { AnyAction } from "redux";
+
+const updateRequest = (id: number) => {
+  return new Promise((res, rej) => {
+    setTimeout(() => {
+      res(id);
+    }, 5000);
+  });
+};
+
+interface AnyActionWithPayload extends AnyAction {
+  payload: any;
+}
+
+type UpdateSomethingIn = ReturnType<typeof updateSomething>;
+
+const updateSomethingEpic: Epic<UpdateSomethingIn, AnyActionWithPayload, RootState> = (action$) =>
+  action$.pipe(
+    ofType(updateSomething.type),
+    switchMap((action) => {
+      const id = action.payload.id;
+      // return ajax.put(`https://myApi.com/api/posts/${id}`) // <--- in real world example it would some reuest, not promise
+      return from(updateRequest(id)).pipe(
+        // you just need to use mergeMap
+        mergeMap((res) => {
+          return from([updateSomethingSuccess(), fetchSomethingStart(id)]); // and use from to make observable that returns 2 actions
+        }),
+        catchError((error: AjaxError) => {
+          return of(fetchSomethingElseError());
+        })
+      );
+    })
+  );
+```
+
 # type `T[keyof T]` and `ReturnType<t[keyof T]>`:
 
 ### type `T[keyof T]`

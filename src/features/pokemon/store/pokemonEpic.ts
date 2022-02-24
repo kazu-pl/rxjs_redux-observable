@@ -15,6 +15,7 @@ type FetchAll =
   | ReturnType<typeof fetchAllPolemons>
   | ReturnType<typeof fetchAllPolemonsError>
   | ReturnType<typeof fetchAllPolemonsSuccess>;
+// the first argument for Epic should be ReturnType<typeof fetchAllPolemons> type because I allow only that action to pass down in this epic by typing  ofType(fetchAllPolemons.type) but the epic is typed that the second argument must extend the first one which is a mistake? that's why I type both arguments with the same type
 const fetchAllPokemonsEpic: Epic<FetchAll, FetchAll, RootState> = (action$, state$) =>
   action$.pipe(
     tap((action: any) => console.log({ action, epic: "pokemon" })), // here any action, even the ones that this epic does not use goes and can be catched
