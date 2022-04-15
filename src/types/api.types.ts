@@ -6,6 +6,6 @@ export interface Pokemon {
 export interface FetchAllPokemonsResponse {
   count: number;
   next: null | string;
-  precious: null | string;
+  previous: null | string;
   results: Pokemon[];
 }
