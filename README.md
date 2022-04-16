@@ -1,3 +1,93 @@
+# how to redirect to another page after successful observable action
+
+```tsx
+import { from, tap } from "rxjs";
+import { useNavigate } from "react-router-dom";
+
+const getPromise = () =>
+  new Promise((res, rej) => {
+    setTimeout(() => {
+      res("");
+    }, 2000);
+  });
+
+const MyComponent = () => {
+  const navigate = useNavigate();
+
+  const handleSubmit = () => {
+    from(getPromise())
+      .pipe(
+        tap(() => navigate("/account")) // you can do redirect like this in tap()
+        // () => of(navigate("/account")), // or directly like this (without any tap) - IT WILL REDIRECT IMMEDIATELY without waiting for soruce observable to resolve
+      )
+      .subscribe(() => {
+        // YOU NEED AT LEAST EMPTY subscribe(); - without subscribe method the observable WON'T EVEN RUN
+        // navigate("/account"); // or you can redirect here in subscribe
+      });
+  };
+
+  const handleSubmit2 = () => {
+    const obs$ = from(getPromise()).subscribe(() => {
+      navigate("/account");
+      obs$.unsubscribe(); // you can also unsubscribe after redirect and fulfilled
+    });
+  };
+
+  return <button onclick={handleSubmit}>click me to redirect</button>;
+};
+```
+
+# error handling with `catchError`, `throwError` and `of`
+
+```tsx
+const handleSubmit = () => {
+  ajax
+    .get("/logn")
+    .pipe(
+      tap((ajaxResponse) => {
+        console.log("inside of tap() ");
+      }),
+      catchError((ajaxError) => {
+        console.log("catchError");
+        console.log({ ajaxError });
+        // return of(ajaxError); // if inside of catchError() you return of() then in subscribe() will be fired `next` function
+        return throwError(() => ajaxError); // if inside of catchError() you return throwError() then in subscribe() will be fired `error` function
+      })
+    )
+    .subscribe({
+      next: () => {
+        console.log("I will be fired if no error occured or catchError returned of() observable operator");
+      },
+      error: (err) => {
+        console.log(
+          "I will be fired if error occured (and no catchError was used) or catchError was used and returned throwError() observable operator"
+        );
+      },
+    });
+};
+```
+
+# Argument of type '(ajaxError: any) => void' is not assignable to parameter of type ..... type `void` is not assignable to type `ObservableInput<any>`
+
+If you get error like this:
+
+```
+Argument of type '(ajaxError: any) => void' is not assignable to parameter of type '(err: any, caught: Observable<AjaxResponse<any>>) => ObservableInput<any>'.
+  Type 'void' is not assignable to type 'ObservableInput<any>'.
+
+```
+
+then it means you don't return your `or` or any other operator. Example:
+
+```ts
+ajax.get("/login").pipe(
+  catchError((ajaxError) => {
+    // of(ajaxError); // wrong
+    return of(ajaxError); // correct
+  })
+);
+```
+
 # how to fetch all items at once when API has limit of max items that can be returned in single request:
 
 ```ts
