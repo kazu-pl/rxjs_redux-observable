@@ -1,3 +1,171 @@
+# how to redirect to another page after successful observable action
+
+```tsx
+import { from, tap } from "rxjs";
+import { useNavigate } from "react-router-dom";
+
+const getPromise = () =>
+  new Promise((res, rej) => {
+    setTimeout(() => {
+      res("");
+    }, 2000);
+  });
+
+const MyComponent = () => {
+  const navigate = useNavigate();
+
+  const handleSubmit = () => {
+    from(getPromise())
+      .pipe(
+        tap(() => navigate("/account")) // you can do redirect like this in tap()
+        // () => of(navigate("/account")), // or directly like this (without any tap) - IT WILL REDIRECT IMMEDIATELY without waiting for soruce observable to resolve
+      )
+      .subscribe(() => {
+        // YOU NEED AT LEAST EMPTY subscribe(); - without subscribe method the observable WON'T EVEN RUN
+        // navigate("/account"); // or you can redirect here in subscribe
+      });
+  };
+
+  const handleSubmit2 = () => {
+    const obs$ = from(getPromise()).subscribe(() => {
+      navigate("/account");
+      obs$.unsubscribe(); // you can also unsubscribe after redirect and fulfilled
+    });
+  };
+
+  return <button onclick={handleSubmit}>click me to redirect</button>;
+};
+```
+
+# error handling with `catchError`, `throwError` and `of`
+
+```tsx
+const handleSubmit = () => {
+  ajax
+    .get("/logn")
+    .pipe(
+      tap((ajaxResponse) => {
+        console.log("inside of tap() ");
+      }),
+      catchError((ajaxError) => {
+        console.log("catchError");
+        console.log({ ajaxError });
+        // return of(ajaxError); // if inside of catchError() you return of() then in subscribe() will be fired `next` function
+        return throwError(() => ajaxError); // if inside of catchError() you return throwError() then in subscribe() will be fired `error` function
+      })
+    )
+    .subscribe({
+      next: () => {
+        console.log("I will be fired if no error occured or catchError returned of() observable operator");
+      },
+      error: (err) => {
+        console.log(
+          "I will be fired if error occured (and no catchError was used) or catchError was used and returned throwError() observable operator"
+        );
+      },
+    });
+};
+```
+
+# Argument of type '(ajaxError: any) => void' is not assignable to parameter of type ..... type `void` is not assignable to type `ObservableInput<any>`
+
+If you get error like this:
+
+```
+Argument of type '(ajaxError: any) => void' is not assignable to parameter of type '(err: any, caught: Observable<AjaxResponse<any>>) => ObservableInput<any>'.
+  Type 'void' is not assignable to type 'ObservableInput<any>'.
+
+```
+
+then it means you don't return your `or` or any other operator. Example:
+
+```ts
+ajax.get("/login").pipe(
+  catchError((ajaxError) => {
+    // of(ajaxError); // wrong
+    return of(ajaxError); // correct
+  })
+);
+```
+
+# how to fetch all items at once when API has limit of max items that can be returned in single request:
+
+```ts
+import { expand, tap, mergeMap, switchMap, catchError } from "rxjs/operators";
+import { of, EMPTY } from "rxjs";
+import { ajax } from "rxjs/ajax";
+import { Epic, ofType } from "redux-observable";
+import { RootState } from "common/store/rootReducer";
+
+interface Item {
+  id: number;
+  label: string;
+}
+
+interface ResponseFromApi {
+  data: Item[];
+  next: string;
+  prev: string;
+  pageSize: number;
+  page: number;
+}
+
+import { fetchAll, fetchAllDone, fetchAllError } from "./itemsSlice";
+
+export type FetchAllIitemsStartAction = ReturnType<typeof fetchAll>;
+export type FetchAllItemsAction =
+  | FetchAllIitemsStartAction
+  | ReturnType<typeof fetchAllDone>
+  | ReturnType<typeof fetchAllError>;
+const fetchAllItemsEpic: Epic<FetchAllItemsAction, FetchAllItemsAction, RootState> = (action$, state$) =>
+  action$.pipe(
+    ofType<FetchAllIitemsStartAction, FetchAllIitemsStartAction["type"]>(fetchAll.type),
+    mergeMap((payload) => {
+      return ajax.get<ResponseFromApi>("/items").pipe(
+        switchMap((ajaxResponse) => {
+          const items = ajaxResponse.response.data;
+          // count is also known as totalItems
+          const { count, pageSize } = ajaxResponse.response;
+
+          let paginatedItems: Item[] = [];
+
+          const getItems = (url: string) =>
+            ajax.get<ResponseFromApi>(url).pipe(
+              tap((ajaxResponse) => {
+                paginatedItems = [...paginatedItems, ...ajaxResponse.response.data];
+              })
+            );
+
+          if (count > pageSize) {
+            // here I put count (totalItems) as page_size to be sure that I will always ask for as much as possible items (I won't get that many items because this showcase is in a situation where API has let's say max limit of 100 items at a request so page_size can be max 100 so to make it reusable I just put count as page_size and let the API handle how many it will return to me)
+            return getItems(`/items&page_size=${count}`).pipe(
+              expand((data) => {
+                // data.response.next is link from api response under which you can get next part of data with the same pagination settings you requested the first request
+                if (data.response.next) {
+                  return getItems(data.response.next);
+                } else {
+                  return EMPTY;
+                }
+              }),
+              map(() => {
+                return fetchAllDone(paginatedItems);
+              }),
+              catchError((ajaxError) => {
+                return of(fetchAllError({ status: ajaxError.status, message: ajaxError.message }));
+              })
+            );
+          } else {
+            return of(fetchAllDone(items));
+          }
+        }),
+        catchError((ajaxError) => {
+          return of(fetchAllError({ status: ajaxError.status, message: ajaxError.message }));
+        })
+      );
+    })
+  );
+```
+
 # Return two or more actions in epic when the initial action is completed:
 
 ```tsx
@@ -220,15 +388,15 @@ export const pokemonSlice = createSlice({
     resetData: (state) => {
       state.data = null;
     },
-    fetchAllPolemons(state) {
+    fetchPokemons(state) {
       state.isFetching = true;
     },
-    fetchAllPolemonsSuccess(state, action: PayloadAction<FetchAllPokemonsResponse>) {
+    fetchPokemonsSuccess(state, action: PayloadAction<FetchAllPokemonsResponse>) {
       // has `action` argument
       state.data = action.payload.results;
       state.isFetching = false;
     },
-    fetchAllPolemonsError(state, action) {
+    fetchPokemonsError(state, action) {
       // // has `action` argument
       state.data = null;
       state.isFetching = false;
@@ -243,17 +411,17 @@ Because some of above actions has `action` argument, the type of their type is:
 ```ts
 type FetchAll =
   | {
-      // type of fetchAllPolemonsError
+      // type of fetchPokemonsError
       payload: any;
       type: string;
     }
   | {
-      // type of fetchAllPolemonsSuccess
+      // type of fetchPokemonsSuccess
       payload: FetchAllPokemonsResponse;
       type: string;
     }
   | {
-      // type of fetchAllPolemons
+      // type of fetchPokemons
       payload: undefined;
       type: string;
     };
@@ -265,12 +433,12 @@ Below this comes from:
 // src/features/counter/store/pokemonEpic.ts
 import { PokemonSliceAllActions } from "./pokemonSlice";
 
-const { fetchAllPolemons, fetchAllPolemonsError, fetchAllPolemonsSuccess } = PokemonSliceAllActions;
+const { fetchPokemons, fetchPokemonsError, fetchPokemonsSuccess } = PokemonSliceAllActions;
 
 type FetchAll =
-  | ReturnType<typeof fetchAllPolemons>
-  | ReturnType<typeof fetchAllPolemonsError>
-  | ReturnType<typeof fetchAllPolemonsSuccess>;
+  | ReturnType<typeof fetchPokemons>
+  | ReturnType<typeof fetchPokemonsError>
+  | ReturnType<typeof fetchPokemonsSuccess>;
 // its the type of FetchAll
 ```
 

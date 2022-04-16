@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { fetchAllPolemons, selectData, selectIsFetching } from "features/pokemon/store/pokemonSlice";
+import { fetchPokemons, selectData, selectIsFetching } from "features/pokemon/store/pokemonSlice";
 
 import { useAppSelector, useAppDispatch } from "../../../common/store/hooks";
 import { incrementByAmount, selectCount, incrementAsync } from "../store/counterSlice";
@@ -31,11 +31,25 @@ export function Counter() {
         <button className={styles.button} onClick={() => dispatch(incrementByAmount(Number(incrementAmount) || 0))}>
           Add Amount
         </button>
-        <button onClick={() => dispatch(incrementAsync())}>add async</button>
+        <button onClick={() => dispatch(incrementAsync("yes"))}>add async</button>
       </div>
 
       <div className={styles.row}>
-        <button onClick={() => dispatch(fetchAllPolemons())}>FETCH POKEMONS</button>
+        <button
+          onClick={() =>
+            dispatch(
+              fetchPokemons({
+                page: 1,
+                pageSize: 10,
+                sortBy: "createdAt",
+                sortDirection: "asc",
+                search: null,
+              })
+            )
+          }
+        >
+          FETCH POKEMONS
+        </button>
       </div>
 
       {isPokemonsFetching && <p>fetching . . .</p>}
