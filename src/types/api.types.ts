@@ -17,3 +17,16 @@ export interface Tokens {
   /** token used to regenerate new accessToken if it expired */
   refreshToken: string;
 }
+
+export interface FetchSinglePokemonResponse {
+  abilities: {
+    ability: {
+      name: string;
+      url: string;
+    };
+    is_hidden: boolean;
+    slot: number;
+  }[];
+  name: string;
+  id: number;
+}

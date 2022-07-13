@@ -1,3 +1,207 @@
+# `ofType` vs `filter` operators in Epic for filtering the actuall epic action:
+
+Lets suppose you have epic which receives soem arguments in redux `payload` like `currentPage` or `pageSize` etc. You can type that with 2 ways:
+
+`1` using `ofType`:
+
+```ts
+const { fetchPokemons, fetchPokemonsError, fetchPokemonsSuccess } = PokemonSliceAllActions;
+
+type FetchAllStart = ReturnType<typeof fetchPokemons>;
+type FetchAll = FetchAllStart | ReturnType<typeof fetchPokemonsError> | ReturnType<typeof fetchPokemonsSuccess>;
+
+const fetchAllPokemonsEpic: Epic<FetchAll, FetchAll, RootState> = (action$, state$) =>
+  action$.pipe(
+    ofType<FetchAllStart, FetchAllStart["type"]>(fetchPokemons.type), // using ofType from redux-observable
+    switchMap(({ payload: { page, pageSize, sortBy, sortDirection } }) => {
+      // pageSize and other items will be any if you have `b)` situation or if you have `a)` situation then TypeScript will throw you an error that pageSize does not exist (it exists)
+      //  ...
+    })
+  );
+```
+
+`a)` But above `ofType` will throw you an error if any action of any slice does not use any `action` parameter. In another words, if you have any action that looks like this:
+
+```tsx
+const counterSlice = createSlice({
+  name: "counter",
+  initialState,
+  reducers: {
+    // the action. Its type will be: { type: string; payload: undefined }
+    incrementAsync: (state) => {
+      state.status = "loading";
+    },
+  },
+});
+```
+
+instead of this:
+
+```tsx
+const counterSlice = createSlice({
+  name: "counter",
+  initialState,
+  reducers: {
+    // the action. Its type will be: { type: string; payload: number[] }
+    incrementAsync: (state, action: PayloadAction<{ data: number[] }>) => {
+      state.status = "loading";
+    },
+  },
+});
+```
+
+Then you will got an error in epic that says the payload is undefined and you won't be albe to destructurize any elements you put as the action arguments when dispatching it.
+
+`b)` On the other hand, if you have this:
+
+```tsx
+const counterSlice = createSlice({
+  name: "counter",
+  initialState,
+  reducers: {
+    // the action. Its type will be: { type: string; payload: any }
+    incrementAsync: (state, action) => {
+      state.status = "loading";
+    },
+  },
+});
+```
+
+Then `ofType` won't throw you any error but it will type payload as any
+
+OR you can use `filter`:
+
+`2`:
+
+```ts
+const { fetchPokemons, fetchPokemonsError, fetchPokemonsSuccess } = PokemonSliceAllActions;
+
+type FetchAllStart = ReturnType<typeof fetchPokemons>;
+type FetchAll = FetchAllStart | ReturnType<typeof fetchPokemonsError> | ReturnType<typeof fetchPokemonsSuccess>;
+
+const fetchAllPokemonsEpic: Epic<FetchAll, FetchAll, RootState> = (action$, state$) =>
+  action$.pipe(
+    filter(fetchPokemons.match), // using filter from rxjs
+    switchMap(({ payload: { page, pageSize, sortBy, sortDirection } }) => {
+      //  ...
+    })
+  );
+```
+
+Found [here](https://redux-toolkit.js.org/api/createAction#with-redux-observable)
+
+Additionally you can change `Epic` type arguments. Instead of typing any epic with type like: `Epic<FetchAll, FetchAll, RootState>` you can just paste `AnyAction` as the type for Epic so it will be:
+
+```ts
+import { AnyAction } from "@reduxjs/toolkit";
+
+const fetchAllPokemonsEpic: Epic<AnyAction, AnyAction, RootState> = (action$, state$) => {};
+```
+
+OR (what's even better) you can use `RootEpicAction` type from here:
+
+```tsx
+// src/common/store/rootEpic.tsx
+
+import { combineEpics } from "redux-observable";
+import { createEpicMiddleware } from "redux-observable";
+import { RootState } from "./rootReducer";
+
+import counterEpic, { CounterEpic } from "features/counter/store/counterEpic";
+import pokemonEpic, { PokemonEpic } from "features/pokemon/store/pokemonEpic";
+
+const rootEpic = combineEpics(counterEpic, pokemonEpic);
+
+export default rootEpic;
+
+export type RootEpicAction = CounterEpic | PokemonEpic; // this is the type
+
+export const epicMiddleware = createEpicMiddleware<RootEpicAction, RootEpicAction, RootState>();
+```
+
+so it would become:
+
+```ts
+import { RootEpicAction } from "src/common/store/rootEpic";
+
+const fetchAllPokemonsEpic: Epic<RootEpicAction, RootEpicAction, RootState> = (action$, state$) => {};
+```
+
+And any `PokemonEpic` or any other type of this kind is just:
+
+```tsx
+// src/features/pokemon/store/pokemonEpic.ts
+
+import { PokemonSliceAllActions } from "./pokemonSlice";
+
+type T = typeof PokemonSliceAllActions;
+
+export type PokemonEpic = ReturnType<T[keyof T]>;
+```
+
+And the `PokemonSliceAllActions` const comes from:
+
+```tsx
+// src/features/pokemon/store/pokemonSlice.ts
+
+const actions = pokemonSlice.actions;
+export { actions as PokemonSliceAllActions };
+```
+
+It can be typed like so because in real, inside of the epic you will see any dispatched action, not just the usuall 3 ones (start, done, fail) you want to dispatch
+
+# Custom `Epic` type so you no longer need to pass your actions type or `AnyType` as the 1st and 2nd argument for `Epic` type:
+
+Instead of using epic type like:
+
+```ts
+type FetchAllStart = ReturnType<typeof fetchPokemons>;
+type FetchAll = FetchAllStart | ReturnType<typeof fetchPokemonsError> | ReturnType<typeof fetchPokemonsSuccess>;
+
+const fetchAllPokemonsEpic: Epic<FetchAll, FetchAll, RootState> = (action$, state$) => {};
+```
+
+You can just type like:
+
+```ts
+import { AnyAction } from "@reduxjs/toolkit";
+
+const fetchAllPokemonsEpic: Epic<AnyAction, AnyAction, RootState> = (action$, state$) => {};
+```
+
+It's a good type because in real, inside of that epic you will receive EVERY dispatched action, not only your fetching actions so `AnyAction` is more accurate type.
+But still, it can be better because now we still need to import that `AnyAction` type alongside with `Epic` type in any epic file.
+We can just create separate file inside of which we will create new type that will put `AnyAction` as the generic type so we no longer needs to do it manually in every epic file:
+
+```ts
+// src/types/redux-observable.types.ts
+
+// import { AnyAction } from "@reduxjs/toolkit"; // if you have problems you can use AnyAction instead of RootEpicAction
+import { RootEpicAction } from "../common/store/rootEpic";
+import { RootState } from "common/store/rootReducer";
+import { Epic } from "redux-observable";
+
+export type ReduxObservableEpic = Epic<RootEpicAction, RootEpicAction, RootState>;
+```
+
+And now our epic will look like this:
+
+```ts
+const fetchAllPokemonsEpic: ReduxObservableEpic = (action$, state$) =>
+  action$.pipe(
+    filter(fetchPokemons.match),
+    switchMap(({ payload: { page, pageSize, sortBy, sortDirection } }) => {
+      return ajax.get<FetchAllPokemonsResponse>("https://pokeapi.co/api/v2/pokemon").pipe(
+        map((res) => fetchPokemonsSuccess(res.response)),
+        catchError((error: AjaxError) => {
+          console.log({ error, epic: "pokemon" });
+          return of(fetchPokemonsError(error));
+        })
+      );
+    })
+  );
+```
+
 # how to redirect to another page after successful observable action
 
 ```tsx
