@@ -9,6 +9,6 @@ const rootEpic = combineEpics(counterEpic, pokemonEpic);
 
 export default rootEpic;
 
-type EpicMiddlewareRoot = CounterEpic | PokemonEpic;
+export type RootEpicAction = CounterEpic | PokemonEpic;
 
-export const epicMiddleware = createEpicMiddleware<EpicMiddlewareRoot, EpicMiddlewareRoot, RootState>();
+export const epicMiddleware = createEpicMiddleware<RootEpicAction, RootEpicAction, RootState>();

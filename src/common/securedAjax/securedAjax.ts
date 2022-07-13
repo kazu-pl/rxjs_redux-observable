@@ -50,7 +50,7 @@ function securedAjax<Response = any>(url: string, method: MethodsWithoutBody | M
                   Authorization: `Bearer ${getTokens()?.accessToken}`,
                   // "Accept-Language": i18n.language,
                 },
-                // withCredentials: false, // enable to rend crossOrigin credentials like cookies
+                // withCredentials: false, // enable to send crossOrigin credentials like cookies
               });
             }),
             catchError((error: AjaxError) => {

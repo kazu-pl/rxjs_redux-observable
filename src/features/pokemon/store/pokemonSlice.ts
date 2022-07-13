@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { FetchAllPokemonsResponse } from "types/api.types";
+import { FetchAllPokemonsResponse, FetchSinglePokemonResponse } from "types/api.types";
 import { RootState } from "common/store/store";
 
 interface FetchError {
@@ -20,6 +20,11 @@ interface PokemonState {
   isFetching: boolean;
   error: null | FetchError;
   filters: Filters;
+  singlePokemon: {
+    data: FetchSinglePokemonResponse | null;
+    isFetching: boolean;
+    error: null | FetchError;
+  };
 }
 
 const initialState: PokemonState = {
@@ -32,6 +37,11 @@ const initialState: PokemonState = {
     sortBy: "createdAt",
     sortDirection: "asc",
     search: null,
+  },
+  singlePokemon: {
+    data: null,
+    isFetching: true,
+    error: null,
   },
 };
 
@@ -78,10 +88,16 @@ const pokemonSlice = createSlice({
     },
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
-    fetchSomethingElse(_, action: PayloadAction<any>) {},
-    fetchSomethingElseSuccess(state, action: PayloadAction<any>) {},
-    fetchSomethingElseError(state, acttion: PayloadAction<FetchError>) {
+    fetchSinglePokemonStart(state, action: PayloadAction<{ pokemonName: string }>) {
+      state.singlePokemon.isFetching = true;
+    },
+    fetchSinglePokemonSuccess(state, action: PayloadAction<FetchSinglePokemonResponse>) {
+      state.singlePokemon.isFetching = false;
+      state.singlePokemon.data = action.payload;
+    },
+    fetchSinglePokemonError(state, acttion: PayloadAction<FetchError>) {
       state.error = acttion.payload;
+      state.singlePokemon.isFetching = false;
     },
   },
 });
@@ -91,9 +107,11 @@ const actions = pokemonSlice.actions;
 export { actions as PokemonSliceAllActions }; // you have to export ALL actions  because you need actions like fetchAllPolekomsSuccess in redux-observable even you won't dispatch it directly
 // ALTERNATIVE: you can export the whole pokemonSlice (right now you exports only pokemonSlice.reducer) and import it in pokemonEpic. Right now you can't do so because you import pokemonSlice.reducer which does not have action object (its the slice itself that has it)
 
-export const { resetData, fetchPokemons, fetchSomethingElse, updateFetchParams } = pokemonSlice.actions; // here you export only the actions you can dispatch. PAY ATTENITION that you don't export here actions like "fetchAllPolekomsSuccess" or "fetchSomethingElseError" because you should not be able to dispatch them anywhere. They are used only in pokemonEpic
+export const { resetData, fetchPokemons, fetchSinglePokemonStart, updateFetchParams } = pokemonSlice.actions; // here you export only the actions you can dispatch. PAY ATTENITION that you don't export here actions like "fetchAllPolekomsSuccess" or "fetchSomethingElseError" because you should not be able to dispatch them anywhere. They are used only in pokemonEpic
 
 export const selectData = (state: RootState) => state.pokemon.data;
 export const selectIsFetching = (state: RootState) => state.pokemon.isFetching;
+export const selectIsFetchingSinglePokemon = (state: RootState) => state.pokemon.singlePokemon.isFetching;
+export const selectSinglePokemon = (state: RootState) => state.pokemon.singlePokemon.data;
 
 export default pokemonSlice.reducer;
