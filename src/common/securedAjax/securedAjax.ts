@@ -11,13 +11,16 @@ type AllHTTPMethods = Exclude<keyof AjaxCreationMethod, "getJSON">;
 type MethodsWithoutBody = Extract<AllHTTPMethods, "get" | "delete">;
 type MethodsWithBody = Exclude<AllHTTPMethods, "get" | "delete">;
 
-function securedAjax<Response = any>(url: string, method: MethodsWithoutBody): Observable<AjaxResponse<Response>>;
-function securedAjax<Response = any>(
+function securedAjaxFunction<Response = any>(
+  url: string,
+  method: MethodsWithoutBody
+): Observable<AjaxResponse<Response>>;
+function securedAjaxFunction<Response = any>(
   url: string,
   method: MethodsWithBody,
   body?: any
 ): Observable<AjaxResponse<Response>>;
-function securedAjax<Response = any>(url: string, method: MethodsWithoutBody | MethodsWithBody, body?: any) {
+function securedAjaxFunction<Response = any>(url: string, method: MethodsWithoutBody | MethodsWithBody, body?: any) {
   return ajax<Response>({
     url: `${API_URL}${url}`,
     method,
@@ -68,5 +71,13 @@ function securedAjax<Response = any>(url: string, method: MethodsWithoutBody | M
     })
   );
 }
+
+const securedAjax = {
+  get: <T>(url: string) => securedAjaxFunction<T>(url, "get"),
+  delete: <T>(url: string) => securedAjaxFunction<T>(url, "delete"),
+  post: <T>(url: string, body?: any) => securedAjaxFunction<T>(url, "post", body),
+  put: <T>(url: string, body?: any) => securedAjaxFunction<T>(url, "put", body),
+  patch: <T>(url: string, body?: any) => securedAjaxFunction<T>(url, "patch", body),
+};
 
 export default securedAjax;
