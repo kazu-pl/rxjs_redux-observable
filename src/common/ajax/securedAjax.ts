@@ -7,7 +7,7 @@ import { Tokens } from "types/api.types";
 import createAjaxClient from "./createAjaxClient";
 // import i18n from "i18n";
 
-function securedAjaxFunction<T>({ url, headers, ...restOfCinfig }: AjaxConfig) {
+function securedAjaxFunction<T>({ url, headers, ...restOfConfig }: AjaxConfig) {
   return ajax<T>({
     url: `${API_URL + url}`,
     headers: {
@@ -15,7 +15,7 @@ function securedAjaxFunction<T>({ url, headers, ...restOfCinfig }: AjaxConfig) {
       // "Accept-Language": i18n.language,
       ...headers,
     },
-    ...restOfCinfig,
+    ...restOfConfig,
     // withCredentials: true, // enable to rend crossOrigin credentials like cookies
   }).pipe(
     catchError((error: AjaxError) => {
@@ -39,7 +39,7 @@ function securedAjaxFunction<T>({ url, headers, ...restOfCinfig }: AjaxConfig) {
                   // "Accept-Language": i18n.language,
                   ...headers,
                 },
-                ...restOfCinfig,
+                ...restOfConfig,
                 // withCredentials: false, // enable to send crossOrigin credentials like cookies
               });
             }),
