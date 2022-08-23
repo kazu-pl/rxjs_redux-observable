@@ -1,34 +1,21 @@
-import { catchError, Observable, tap, throwError, mergeMap } from "rxjs";
-import { ajax, AjaxError, AjaxResponse } from "rxjs/ajax";
-import { AjaxCreationMethod } from "rxjs/internal/ajax/ajax";
+import { catchError, tap, throwError, mergeMap } from "rxjs";
+import { ajax, AjaxConfig, AjaxError } from "rxjs/ajax";
 
 import { getTokens, saveTokens } from "common/auth/tokens";
 import { API_URL } from "common/constants/env";
 import { Tokens } from "types/api.types";
+import createAjaxClient from "./createAjaxClient";
 // import i18n from "i18n";
 
-type AllHTTPMethods = Exclude<keyof AjaxCreationMethod, "getJSON">;
-type MethodsWithoutBody = Extract<AllHTTPMethods, "get" | "delete">;
-type MethodsWithBody = Exclude<AllHTTPMethods, "get" | "delete">;
-
-function securedAjaxFunction<Response = any>(
-  url: string,
-  method: MethodsWithoutBody
-): Observable<AjaxResponse<Response>>;
-function securedAjaxFunction<Response = any>(
-  url: string,
-  method: MethodsWithBody,
-  body?: any
-): Observable<AjaxResponse<Response>>;
-function securedAjaxFunction<Response = any>(url: string, method: MethodsWithoutBody | MethodsWithBody, body?: any) {
-  return ajax<Response>({
-    url: `${API_URL}${url}`,
-    method,
-    body,
+function securedAjaxFunction<T>({ url, headers, ...restOfCinfig }: AjaxConfig) {
+  return ajax<T>({
+    url: `${API_URL + url}`,
     headers: {
       Authorization: `Bearer ${getTokens()?.accessToken}`,
       // "Accept-Language": i18n.language,
+      ...headers,
     },
+    ...restOfCinfig,
     // withCredentials: true, // enable to rend crossOrigin credentials like cookies
   }).pipe(
     catchError((error: AjaxError) => {
@@ -45,14 +32,14 @@ function securedAjaxFunction<Response = any>(url: string, method: MethodsWithout
               });
             }),
             mergeMap((val) => {
-              return ajax<Response>({
+              return ajax<T>({
                 url: `${API_URL}${url}`,
-                method,
-                body,
                 headers: {
                   Authorization: `Bearer ${getTokens()?.accessToken}`,
                   // "Accept-Language": i18n.language,
+                  ...headers,
                 },
+                ...restOfCinfig,
                 // withCredentials: false, // enable to send crossOrigin credentials like cookies
               });
             }),
@@ -72,12 +59,6 @@ function securedAjaxFunction<Response = any>(url: string, method: MethodsWithout
   );
 }
 
-const securedAjax = {
-  get: <T>(url: string) => securedAjaxFunction<T>(url, "get"),
-  delete: <T>(url: string) => securedAjaxFunction<T>(url, "delete"),
-  post: <T>(url: string, body?: any) => securedAjaxFunction<T>(url, "post", body),
-  put: <T>(url: string, body?: any) => securedAjaxFunction<T>(url, "put", body),
-  patch: <T>(url: string, body?: any) => securedAjaxFunction<T>(url, "patch", body),
-};
+const securedAjax = createAjaxClient(securedAjaxFunction);
 
 export default securedAjax;
