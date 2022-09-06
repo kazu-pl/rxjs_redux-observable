@@ -1,3 +1,20 @@
+# How to make http request as a side effect in `tap()` operator without waiting for the request's response:
+
+```ts
+const logoutEpic: ReduxObservableEpic = (action$) =>
+  action$.pipe(
+    filter(logout.match),
+    tap(() => {
+      const tokens = getTokens();
+
+      ajax.post("/blacklist", tokens).subscribe(); // just make an ajax request and add subscribe() to it so it will be fired. Because you do it in tap and not in any sort of mergeMap or anything like that, and you don't return it, ajax will be fired and tap() operator will be done without waiting for the request to reject/fulfill
+    }),
+    mergeMap(() => {
+      return EMPTY;
+    })
+  );
+```
+
 # `ofType` vs `filter` operators in Epic for filtering the actuall epic action:
 
 Lets suppose you have epic which receives soem arguments in redux `payload` like `currentPage` or `pageSize` etc. You can type that with 2 ways:
