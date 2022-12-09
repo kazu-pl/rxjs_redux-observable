@@ -70,21 +70,37 @@ const pokemonSlice = createSlice({
     },
 
     updateFetchParams(state, action: PayloadAction<Partial<Filters>>) {
-      if (action.payload.page) {
-        state.filters.page = action.payload.page;
-      }
-      if (action.payload.pageSize) {
-        state.filters.pageSize = action.payload.pageSize;
-      }
-      if (action.payload.sortBy) {
-        state.filters.sortBy = action.payload.sortBy;
-      }
-      if (action.payload.sortDirection) {
-        state.filters.sortDirection = action.payload.sortDirection;
-      }
-      if (action.payload.search) {
-        state.filters.search = action.payload.search;
-      }
+      // if (action.payload.page) {
+      //   state.filters.page = action.payload.page;
+      // }
+      // if (action.payload.pageSize) {
+      //   state.filters.pageSize = action.payload.pageSize;
+      // }
+      // if (action.payload.sortBy) {
+      //   state.filters.sortBy = action.payload.sortBy;
+      // }
+      // if (action.payload.sortDirection) {
+      //   state.filters.sortDirection = action.payload.sortDirection;
+      // }
+      // if (action.payload.search) {
+      //   state.filters.search = action.payload.search;
+      // }
+
+      // Instead of writing if() for every filter (like above) you can just create code that will automatically update filters like is shown below:
+      //
+      /**
+       * newFilters is an Array of arrays with filters passed to this action
+       * @example
+       * const newfilters = [ ["page", 1], ["size", 10] ]
+       */
+      const newfilters = Object.entries(action.payload);
+
+      newfilters.forEach((newFilterArray) => {
+        if (typeof newFilterArray[0] === "string") {
+          // @ts-ignore
+          state.filters[newFilterArray[0]] = newFilterArray[1];
+        }
+      });
     },
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - -
